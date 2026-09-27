@@ -21,7 +21,7 @@ A Model Context Protocol (MCP) server for interacting with Reddit - fetch posts,
 | Browse Subreddits             | :white_check_mark: |
 | Search Reddit                 | :white_check_mark: |
 | User Analysis                 | :white_check_mark: |
-| Post Comments (threaded)      | :white_check_mark: |
+| Read Post Comments (threaded) | :white_check_mark: |
 | OAuth Auth (60-100 rpm)       | :white_check_mark: |
 | **RSS Fallback (zero-setup)** | :white_check_mark: |
 
