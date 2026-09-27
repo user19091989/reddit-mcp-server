@@ -1,6 +1,8 @@
-# Reddit MCP Server
+# Reddit MCP Server (Read-Only Fork)
 
-A Model Context Protocol (MCP) server for interacting with Reddit - fetch posts, comments, user info, and **create content**.
+> **Read-only fork of jordanburke/reddit-mcp-server for personal, non-commercial Reddit Data API use: local analysis of public posts and comments. All write tools have been removed.**
+
+A Model Context Protocol (MCP) server for interacting with Reddit - fetch posts, comments, user info, subreddit details, and search results.
 
 [![npm version](https://img.shields.io/npm/v/reddit-mcp-server.svg)](https://www.npmjs.com/package/reddit-mcp-server)
 [![npm downloads](https://img.shields.io/npm/dm/reddit-mcp-server.svg)](https://www.npmjs.com/package/reddit-mcp-server)
@@ -13,21 +15,18 @@ A Model Context Protocol (MCP) server for interacting with Reddit - fetch posts,
 
 ## Features at a Glance
 
-| Feature                         | reddit-mcp-server  | Other Reddit MCPs  |
-| ------------------------------- | :----------------: | :----------------: |
-| **Create Posts**                | :white_check_mark: |        :x:         |
-| **Reply to Posts/Comments**     | :white_check_mark: |        :x:         |
-| **Edit Posts/Comments**         | :white_check_mark: |        :x:         |
-| **Delete Posts/Comments**       | :white_check_mark: |        :x:         |
-| **Spam Protection (Safe Mode)** | :white_check_mark: |        :x:         |
-| **Bot Disclosure Footer**       | :white_check_mark: |        :x:         |
-| **Policy Compliance Built-in**  | :white_check_mark: |        :x:         |
-| Browse Subreddits               | :white_check_mark: | :white_check_mark: |
-| Search Reddit                   | :white_check_mark: | :white_check_mark: |
-| User Analysis                   | :white_check_mark: | :white_check_mark: |
-| Post Comments                   | :white_check_mark: | :white_check_mark: |
-| OAuth Auth (60-100 rpm)         | :white_check_mark: | :white_check_mark: |
-| **RSS Fallback (zero-setup)**   | :white_check_mark: |        :x:         |
+| Feature                       |     This fork      |
+| ----------------------------- | :----------------: |
+| **Strictly read-only**        | :white_check_mark: |
+| Browse Subreddits             | :white_check_mark: |
+| Search Reddit                 | :white_check_mark: |
+| User Analysis                 | :white_check_mark: |
+| Post Comments (threaded)      | :white_check_mark: |
+| OAuth Auth (60-100 rpm)       | :white_check_mark: |
+| **RSS Fallback (zero-setup)** | :white_check_mark: |
+
+This fork contains no tools that create, edit, or delete Reddit content, and it never handles
+Reddit user credentials - only OAuth app credentials.
 
 ## Quick Start
 
@@ -76,41 +75,27 @@ REDDIT_CLIENT_ID=your_client_id REDDIT_CLIENT_SECRET=your_client_secret \
 | `get_user_posts`          | Get posts submitted by a specific user                                      |
 | `get_user_comments`       | Get comments made by a specific user                                        |
 | `get_subreddit_info`      | Get subreddit details and statistics                                        |
+| `get_subreddit_rules`     | Get a subreddit's posting rules                                             |
+| `get_post_flairs`         | List a subreddit's available link flairs                                    |
 | `get_trending_subreddits` | Get currently trending subreddits                                           |
 | `get_post_comments`       | Get comments from a specific post with threading                            |
-| `search_reddit`           | Search for posts across Reddit                                              |
-
-### Write Tools (Require User Credentials)
-
-| Tool             | Description                                    |
-| ---------------- | ---------------------------------------------- |
-| `create_post`    | Create a new post in a subreddit               |
-| `reply_to_post`  | Post a reply to an existing post or comment    |
-| `edit_post`      | Edit your own Reddit post (self-text only)     |
-| `edit_comment`   | Edit your own Reddit comment                   |
-| `save_content`   | Save a post or comment to your account         |
-| `unsave_content` | Remove a post or comment from your saved items |
-| `delete_post`    | Permanently delete your own post               |
-| `delete_comment` | Permanently delete your own comment            |
+| `get_more_comments`       | Expand truncated "load more" comment stubs                                  |
+| `search_reddit`           | Search for posts, subreddits, or users across Reddit                        |
+| `test_reddit_mcp_server`  | Health check for the server configuration                                   |
 
 ## Configuration
 
 ### Environment Variables
 
-| Variable                | Required | Default        | Description                                                           |
-| ----------------------- | -------- | -------------- | --------------------------------------------------------------------- |
-| `REDDIT_CLIENT_ID`      | Yes      | -              | Reddit app client ID (OAuth required since mid-2026)                  |
-| `REDDIT_CLIENT_SECRET`  | Yes      | -              | Reddit app client secret                                              |
-| `REDDIT_USERNAME`       | No       | -              | Reddit username (for write operations)                                |
-| `REDDIT_PASSWORD`       | No       | -              | Reddit password (for write operations)                                |
-| `REDDIT_USER_AGENT`     | No       | Auto-generated | Custom User-Agent string                                              |
-| `REDDIT_AUTH_MODE`      | No       | `auto`         | Authentication mode: `auto`, `authenticated` (`anonymous` deprecated) |
-| `REDDIT_SAFE_MODE`      | No       | `standard`     | Write safeguards: `off`, `standard`, `strict`                         |
-| `REDDIT_BOT_DISCLOSURE` | No       | `off`          | Bot disclosure footer: `auto`, `off`                                  |
-| `REDDIT_BOT_FOOTER`     | No       | Built-in       | Custom bot footer text (when disclosure is `auto`)                    |
-| `REDDIT_CACHE`          | No       | `on`           | In-memory caching of read requests: `on`, `off`                       |
-| `REDDIT_CACHE_MAX_MB`   | No       | `50`           | Cache size cap in MB (LRU eviction beyond this)                       |
-| `REDDIT_MAX_RETRIES`    | No       | `3`            | Retries on HTTP 429 with Retry-After backoff (`0` to disable)         |
+| Variable               | Required | Default        | Description                                                           |
+| ---------------------- | -------- | -------------- | --------------------------------------------------------------------- |
+| `REDDIT_CLIENT_ID`     | Yes      | -              | Reddit app client ID (OAuth required since mid-2026)                  |
+| `REDDIT_CLIENT_SECRET` | Yes      | -              | Reddit app client secret                                              |
+| `REDDIT_USER_AGENT`    | No       | Auto-generated | Custom User-Agent string                                              |
+| `REDDIT_AUTH_MODE`     | No       | `auto`         | Authentication mode: `auto`, `authenticated` (`anonymous` deprecated) |
+| `REDDIT_CACHE`         | No       | `on`           | In-memory caching of read requests: `on`, `off`                       |
+| `REDDIT_CACHE_MAX_MB`  | No       | `50`           | Cache size cap in MB (LRU eviction beyond this)                       |
+| `REDDIT_MAX_RETRIES`   | No       | `3`            | Retries on HTTP 429 with Retry-After backoff (`0` to disable)         |
 
 Reddit closed self-service app creation in November 2025. See [Authentication](#authentication) for how to get credentials.
 
@@ -124,76 +109,11 @@ Reddit closed self-service app creation in November 2025. See [Authentication](#
       "args": ["reddit-mcp-server"],
       "env": {
         "REDDIT_CLIENT_ID": "your_client_id",
-        "REDDIT_CLIENT_SECRET": "your_client_secret",
-        "REDDIT_USERNAME": "your_username",
-        "REDDIT_PASSWORD": "your_password",
-        "REDDIT_SAFE_MODE": "standard"
+        "REDDIT_CLIENT_SECRET": "your_client_secret"
       }
     }
   }
 }
-```
-
-## Safe Mode (Spam Protection)
-
-Protect your Reddit account from spam detection and bans with built-in safeguards. **Enabled by default** (`standard` mode) per Reddit's Responsible Builder Policy.
-
-### Why Use Safe Mode?
-
-Reddit's spam detection can flag accounts for:
-
-- Rapid posting or commenting
-- Duplicate or similar content
-- Posting the same content across multiple subreddits
-- Non-standard User-Agent strings
-
-Safe Mode helps prevent these issues automatically.
-
-### Mode Options
-
-| Mode       | Write Delay | Duplicate Detection       | Use Case                       |
-| ---------- | ----------- | ------------------------- | ------------------------------ |
-| `off`      | None        | No                        | Explicit opt-out only          |
-| `standard` | 2 seconds   | Last 10 items + cross-sub | **Default**, recommended       |
-| `strict`   | 5 seconds   | Last 20 items + cross-sub | For cautious automated posting |
-
-### Disable Safe Mode
-
-Safe mode is enabled by default. To explicitly disable:
-
-```bash
-export REDDIT_SAFE_MODE=off
-npx reddit-mcp-server
-```
-
-### What Safe Mode Does
-
-1. **Rate Limiting**: Enforces minimum delays between write operations
-2. **Duplicate Detection**: Blocks identical content from being posted twice
-3. **Cross-Subreddit Detection**: Prevents posting the same content to multiple subreddits (per Reddit policy)
-4. **Smart User-Agent**: Auto-generates Reddit-compliant User-Agent format when username is provided
-
-## Bot Disclosure
-
-Reddit's Responsible Builder Policy requires bots to disclose their automated nature. Enable automatic bot footers on all posted content:
-
-```bash
-export REDDIT_BOT_DISCLOSURE=auto
-npx reddit-mcp-server
-```
-
-When enabled, a footer is appended to all posts, replies, and edits:
-
-```
----
-🤖 I am a bot | Built with reddit-mcp-server
-```
-
-Customize the footer with `REDDIT_BOT_FOOTER`:
-
-```bash
-export REDDIT_BOT_DISCLOSURE=auto
-export REDDIT_BOT_FOOTER=$'\n\n---\n^(🤖 Custom bot footer text)'
 ```
 
 ## Authentication
@@ -214,8 +134,8 @@ Additionally, Reddit closed self-service OAuth app creation in November 2025. Ne
 
 | Mode              | Rate Limit     | Setup Required    | Tools Available                                | Best For      |
 | ----------------- | -------------- | ----------------- | ---------------------------------------------- | ------------- |
-| `auto` (default)  | 60-100 req/min | OAuth credentials | All tools                                      | Most users    |
-| `authenticated`   | 60-100 req/min | OAuth credentials | All tools                                      | Explicit mode |
+| `auto` (default)  | 60-100 req/min | OAuth credentials | All read-only tools                            | Most users    |
+| `authenticated`   | 60-100 req/min | OAuth credentials | All read-only tools                            | Explicit mode |
 | `auto` (no creds) | ~1 req/min     | None              | `browse_subreddit`, `get_top_posts` only (RSS) | Quick testing |
 | `anonymous`       | ~1 req/min     | None              | `browse_subreddit`, `get_top_posts` only (RSS) | Legacy alias  |
 
@@ -229,34 +149,22 @@ When no OAuth credentials are provided, the server automatically falls back to R
 
 - No engagement metrics (score, comments, upvote ratio are all 0)
 - No pagination (single page of ~25 results)
-- No search, user info, comments, or write operations
+- No search, user info, or comments
 - Lower rate limit (~1 req/min vs 60-100 with OAuth)
 
 RSS results include a disclaimer noting the data source. All other tools return a clear error directing you to set up OAuth credentials.
 
 ### Read-Only Access (OAuth)
 
+The server authenticates as a Reddit OAuth script app using only `REDDIT_CLIENT_ID` and
+`REDDIT_CLIENT_SECRET` (client-credentials grant). No username or password is ever read or
+sent:
+
 ```json
 {
   "env": {
     "REDDIT_CLIENT_ID": "your_client_id",
     "REDDIT_CLIENT_SECRET": "your_client_secret"
-  }
-}
-```
-
-### Write Operations (OAuth + User Credentials)
-
-To create posts, reply, edit, or delete content, add your Reddit username and password:
-
-```json
-{
-  "env": {
-    "REDDIT_CLIENT_ID": "your_client_id",
-    "REDDIT_CLIENT_SECRET": "your_client_secret",
-    "REDDIT_USERNAME": "your_username",
-    "REDDIT_PASSWORD": "your_password",
-    "REDDIT_SAFE_MODE": "standard"
   }
 }
 ```
@@ -320,7 +228,6 @@ docker run -d \
   -p 3000:3000 \
   -e REDDIT_CLIENT_ID=your_client_id \
   -e REDDIT_CLIENT_SECRET=your_client_secret \
-  -e REDDIT_SAFE_MODE=standard \
   ghcr.io/jordanburke/reddit-mcp-server:latest
 ```
 
@@ -335,9 +242,6 @@ services:
     environment:
       - REDDIT_CLIENT_ID=${REDDIT_CLIENT_ID}
       - REDDIT_CLIENT_SECRET=${REDDIT_CLIENT_SECRET}
-      - REDDIT_USERNAME=${REDDIT_USERNAME}
-      - REDDIT_PASSWORD=${REDDIT_PASSWORD}
-      - REDDIT_SAFE_MODE=standard
       - OAUTH_ENABLED=${OAUTH_ENABLED:-false}
       - OAUTH_TOKEN=${OAUTH_TOKEN}
     restart: unless-stopped
@@ -354,14 +258,13 @@ docker run -d --name reddit-mcp -p 3000:3000 --env-file .env reddit-mcp-server
 
 This server is designed with [Reddit's Responsible Builder Policy](https://support.reddithelp.com/hc/en-us/articles/42728983564564-Responsible-Builder-Policy) in mind:
 
-- **Safe mode on by default** — rate limiting and duplicate detection prevent spam
-- **Cross-subreddit duplicate detection** — blocks identical content across subreddits
-- **Bot disclosure support** — optional automated footer for transparency
+- **Read-only by design** — no tools create, edit, or delete Reddit content
 - **No voting/karma manipulation** — upvote/downvote tools are intentionally excluded
 - **No private messaging** — DM tools are intentionally excluded
 - **Policy-aware AI instructions** — MCP server instructions remind AI assistants of data usage restrictions
 
 ## Credits
 
-- Fork of [reddit-mcp-server](https://github.com/alexandros-lekkas/reddit-mcp-server) by Alexandros Lekkas
+- Read-only fork of [jordanburke/reddit-mcp-server](https://github.com/jordanburke/reddit-mcp-server) by Jordan Burke
+- Which forks [reddit-mcp-server](https://github.com/alexandros-lekkas/reddit-mcp-server) by Alexandros Lekkas
 - Inspired by [Python Reddit MCP Server](https://github.com/Arindam200/reddit-mcp) by Arindam200

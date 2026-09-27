@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Reddit MCP (Model Context Protocol) server that provides tools for interacting with the Reddit API. It's built with TypeScript and uses FastMCP to expose Reddit functionality as tools that can be used by AI assistants.
+This is a read-only fork of a Reddit MCP (Model Context Protocol) server that provides tools for interacting with the Reddit API. It's built with TypeScript and uses FastMCP to expose Reddit functionality as tools that can be used by AI assistants. All write tools have been removed; the server only reads public content and authenticates with OAuth app credentials (no Reddit user credentials).
 
 ## Available Tools
 
@@ -14,31 +14,16 @@ This is a Reddit MCP (Model Context Protocol) server that provides tools for int
 - `browse_subreddit` - Browse a subreddit or home feed by sort order (hot, new, top, rising, controversial); `time_filter` applies only to top/controversial (**works via RSS without credentials**)
 - `get_reddit_post` - Get a specific Reddit post with engagement analysis (OAuth required)
 - `get_user_info` - Get detailed information about a Reddit user
-- `get_me` - Get the authenticated user's own account info (requires user credentials)
-- `get_my_overview` - Get your own recent posts and comments (requires user credentials)
-- `get_my_saved` - Get your saved posts and comments (requires user credentials; private)
 - `get_subreddit_info` - Get subreddit details, stats, and community insights
-- `get_subreddit_rules` - Get a subreddit's posting rules (check before posting to avoid auto-removal)
+- `get_subreddit_rules` - Get a subreddit's posting rules
+- `get_post_flairs` - List a subreddit's available link flairs (may 403 on restricted subreddits)
 - `get_trending_subreddits` - Get currently trending/popular subreddits
 - `search_reddit` - Search for posts, subreddits (`type=sr`), or users (`type=user`) across Reddit with filters
 - `get_post_comments` - Get comments from a specific post with threading
 - `get_more_comments` - Expand truncated "load more" comment stubs via /api/morechildren
 - `get_user_posts` - Get posts submitted by a specific user
 - `get_user_comments` - Get comments made by a specific user
-- `get_post_flairs` - List a subreddit's available link flairs (requires user creds; may 403 without credentials)
-
-### Write Tools (User Credentials Required)
-
-**IMPORTANT**: These tools require both REDDIT_USERNAME and REDDIT_PASSWORD to be configured.
-
-- `create_post` - Create a new post in a subreddit (text or link); accepts optional `flair_id`/`flair_text` (from `get_post_flairs`)
-- `reply_to_post` - Post a reply to an existing Reddit post or comment
-- `edit_post` - Edit your own Reddit post (self-text posts only, titles cannot be edited)
-- `edit_comment` - Edit your own Reddit comment
-- `save_content` - Save a post or comment to your account (works on any visible post/comment, not just your own)
-- `unsave_content` - Remove a post or comment from your saved items
-- `delete_post` - **PERMANENTLY** delete your own Reddit post (cannot be undone!)
-- `delete_comment` - **PERMANENTLY** delete your own Reddit comment (cannot be undone!)
+- `test_reddit_mcp_server` - Local health check (no Reddit API calls)
 
 ### Server Modes
 
@@ -89,11 +74,11 @@ pnpm lint:fix
 ### Core Components
 
 1. **Reddit Client** (`src/client/reddit-client.ts`): Singleton pattern implementation that handles:
-   - OAuth2 authentication (client credentials and password flow)
-   - Automatic token refresh via axios interceptors
+   - OAuth2 client-credentials authentication (app-only; no user credentials)
+   - Automatic token refresh via 401 re-auth
    - Rate limiting and error handling
    - RSS fallback routing when no OAuth credentials are available
-   - Both read-only and authenticated operations
+   - Read-only operations only
 
 2. **RSS Client** (`src/client/rss-client.ts`): Zero-credential fallback that parses Reddit's Atom feeds:
    - Parses Atom 1.0 XML via `fast-xml-parser` (attributes preserved with `@_` prefix)
@@ -103,13 +88,13 @@ pnpm lint:fix
    - Returns typed `RedditError` (`HttpError` / `UnknownError`), not bare `Error`
 
 3. **Server and Tools** (`src/index.ts`): There is no `src/tools/` directory — every MCP tool is registered here with `server.addTool`:
-   - Shared render helpers: `formatPostSummary`, `formatUserContent`, `nextPageHint`, `rssDisclaimer`
+   - Shared render helpers: `formatPostSummary`, `nextPageHint`, `rssDisclaimer`
    - Client setup (`setupRedditClient`) and transport startup (stdio or httpStream)
    - `src/bin.ts` is the npx/CLI entry point: it forces stdio mode and handles `--help`/`--version`
 
 4. **Formatters** (`src/utils/formatters.ts`): Turn client types into display shapes:
    - `formatPostInfo`: a link post shows its body text and then its URL; only the body is truncated
-   - `formatCommentInfo(comment, maxLength = 5000)`: comment tools pass their own limit (200 for overview/saved, 300 for user comments and more-comments)
+   - `formatCommentInfo(comment, maxLength = 5000)`: comment tools pass their own limit (300 for user comments and more-comments)
    - `truncateText`: shared cut-to-length helper; the result includes the `...`
    - Engagement and health analysis helpers
 
@@ -135,37 +120,13 @@ The server supports three authentication modes configured via `REDDIT_AUTH_MODE`
    - Behaves identically to `auto` without credentials (RSS only)
    - Emits deprecation warning at startup
 
-**Write operations** (create_post, reply_to_post, edit_post, edit_comment, save_content, unsave_content, delete_post, delete_comment):
-
-- Require REDDIT_USERNAME and REDDIT_PASSWORD in **any** mode
-- Will fail gracefully with a clear error message if credentials are missing
-- Token management is handled automatically by the Reddit client
-
-### Safe Mode (Spam Protection)
-
-The server includes optional safeguards to protect against Reddit's spam detection, configured via `REDDIT_SAFE_MODE`:
-
-1. **off (default)**: No safeguards, original behavior
-2. **standard**: Recommended for normal use
-   - 2-second delay between write operations
-   - Duplicate content detection (tracks last 10 items)
-3. **strict**: For cautious automated posting
-   - 5-second delay between write operations
-   - Aggressive duplicate detection (tracks last 20 items)
-
-**Features:**
-
-- **Rate Limiting**: Enforces minimum delays between write operations to avoid spam flags
-- **Duplicate Detection**: Blocks identical content from being posted, with clear error messages
-- **Smart User-Agent**: Auto-generates Reddit-compliant User-Agent format (`typescript:reddit-mcp-server:1.1.0 (by /u/USERNAME)`) when username is provided
-
 ### Response Caching (Rate-Limit Relief)
 
 Read-only GET requests are cached in-memory to reduce pressure on Reddit's tight rate limits (~10 req/min anonymous, 60-100 authenticated). Configured via `REDDIT_CACHE` (default `on`, set `off` to disable) and `REDDIT_CACHE_MAX_MB` (default `50`).
 
 - **Adaptive TTLs** (`src/client/response-cache.ts`): volatile listings (hot/new/rising) and comment threads cache for 60s; top/controversial, search, and user/subreddit `about` cache for 300s; everything else 120s.
 - **Bounded LRU**: total cached bytes are capped at `REDDIT_CACHE_MAX_MB`; least-recently-used entries are evicted first. A single response larger than the cap is never cached.
-- **Scope**: only successful `GET` responses are cached, keyed by full URL. Write operations and auth requests are never cached. The cache layer lives in `RedditClient.makeRequest`, which re-wraps cached bodies in a fresh `Response` (a fetch body can only be consumed once).
+- **Scope**: only successful `GET` responses are cached, keyed by full URL. Auth requests are never cached. The cache layer lives in `RedditClient.makeRequest`, which re-wraps cached bodies in a fresh `Response` (a fetch body can only be consumed once).
 - Only active when enabled; when disabled the client behaves exactly as before (raw `Response` passthrough).
 
 ### Identifier Validation (Path Injection)
@@ -175,9 +136,8 @@ Every subreddit, username, and thing ID is model-supplied, so `src/utils/reddit-
 - **`normalizeSubreddit`** — strips `r/`, `/r/`, trailing slashes; allows `+`-joined multireddits and `u_` profile subreddits; `""` still means the home feed.
 - **`normalizeUsername`** — strips `u/`, `/u/`, `/user/`.
 - **`normalizeThingId` / `normalizeFullname`** — bare base36 id, or a `t1_`/`t3_` fullname with the explicit kind preserved over the supplied default.
-- Every returned value matches `[A-Za-z0-9_+-]+`, which is already URL-path-safe. No `encodeURIComponent` is applied, because encoding the `+` in `r/science+space` would break it. The one exception is `this.username` from the environment (used by `get_my_overview`/`get_my_saved`), which is encoded rather than validated — a bad env value should not throw out of an `Either`-returning method.
+- Every returned value matches `[A-Za-z0-9_+-]+`, which is already URL-path-safe. No `encodeURIComponent` is applied, because encoding the `+` in `r/science+space` would break it.
 - Validators throw `ValidationError` from inside the `Try` bodies in `reddit-client.ts`, so failures surface as a `Left` before any request is made — including before the auth call.
-- Write helpers are `deleteThing(thingId, defaultKind)` / `editThing(thingId, newText, defaultKind)`; `deletePost`/`deleteComment` and `editPost`/`editComment` are thin wrappers that pick `t3` or `t1`.
 
 ### Rate-Limit Retry (429)
 
@@ -186,7 +146,7 @@ Every subreddit, username, and thing ID is model-supplied, so `src/utils/reddit-
 - **Delay**: honors `Retry-After` (delta-seconds or HTTP-date), then `x-ratelimit-reset`; otherwise exponential backoff (`baseDelayMs * 2^attempt`).
 - **Cap**: a single wait is bounded by `maxDelayMs` (60s); if the required wait exceeds the cap, it gives up and surfaces the typed `HttpError(429)` rather than blocking.
 - **Implementation**: `fetchWithRetry` is recursive (functional style — no mutable loop) and `retryAfterMs` returns `Option<number>`. The 401 re-auth path also flows through it, so a post-reauth request gets 429 handling too.
-- Retries apply to all requests (reads and writes); a 429 means the request was rejected, so retrying is safe.
+- Retries apply to all requests; a 429 means the request was rejected, so retrying is safe.
 
 ### Pagination
 
@@ -205,17 +165,10 @@ Environment variables:
 # Reddit API Credentials (required — Reddit blocks unauthenticated requests since mid-2026)
 REDDIT_CLIENT_ID=your_client_id
 REDDIT_CLIENT_SECRET=your_client_secret
-REDDIT_USER_AGENT=YourApp/1.0.0  # Optional, defaults to "RedditMCPServer/1.1.0"
-
-# Reddit User Credentials (optional, for write operations)
-REDDIT_USERNAME=your_username
-REDDIT_PASSWORD=your_password
+REDDIT_USER_AGENT=YourApp/1.0.0  # Optional, defaults to an auto-generated agent
 
 # Authentication Mode (optional, defaults to 'auto'; 'anonymous' is deprecated)
 REDDIT_AUTH_MODE=auto            # Options: auto, authenticated, anonymous
-
-# Safe Mode (optional, defaults to 'off')
-REDDIT_SAFE_MODE=standard        # Options: off, standard, strict
 
 # Response Caching (optional, defaults to 'on')
 REDDIT_CACHE=on                  # Options: on, off
@@ -246,17 +199,6 @@ npx reddit-mcp-server
 ```bash
 export REDDIT_CLIENT_ID=your_client_id
 export REDDIT_CLIENT_SECRET=your_client_secret
-npx reddit-mcp-server
-```
-
-**With Safe Mode for write operations:**
-
-```bash
-export REDDIT_CLIENT_ID=your_client_id
-export REDDIT_CLIENT_SECRET=your_client_secret
-export REDDIT_USERNAME=your_username
-export REDDIT_PASSWORD=your_password
-export REDDIT_SAFE_MODE=standard
 npx reddit-mcp-server
 ```
 
@@ -293,13 +235,13 @@ curl -H "Authorization: Bearer your-token" http://localhost:3000/mcp
 3. **Token Refresh**: Automatic when tokens expire via authentication checks
 4. **Singleton Client**: Ensures single authenticated instance across all tools
 5. **Thing IDs**: Reddit uses prefixed IDs (t3* for posts, t1* for comments). The client methods handle both prefixed and non-prefixed IDs automatically.
-6. **Edit Operations**: Only self-text posts can be edited. Titles and link posts cannot be edited per Reddit API limitations.
-7. **Delete Operations**: Deletions are permanent and cannot be undone. The content is removed but the post/comment ID remains.
+6. **Read-Only by Design**: No write methods exist on the client; `authenticate()` only ever requests the `client_credentials` grant.
 
 ### Intentionally Excluded (Policy Compliance)
 
 The following Reddit API capabilities are intentionally NOT implemented per Reddit's Responsible Builder Policy:
 
+- **All write operations**: create/edit/delete posts and comments, replies, saving — removed in this read-only fork
 - **Direct Messages/Private Messages**: Bots must get explicit consent for private communications
 - **Voting (upvote/downvote)**: Manipulating Reddit features like voting or karma is prohibited
 - **Bulk data export/scraping**: Reddit data must not be scraped for AI training or commercialized without approval
@@ -335,7 +277,6 @@ The project uses Vitest for testing:
    - Check authentication flow for auth issues
    - Verify environment variables are set correctly
    - Review console.error logs for Reddit API responses
-   - Test with real Reddit API using test scripts (e.g., create test post, edit, delete)
 
 ## Releasing / Version Bumping
 

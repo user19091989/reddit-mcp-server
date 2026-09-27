@@ -5,16 +5,7 @@ import { Option } from "functype"
 import { z } from "zod"
 
 import { getRedditClient, initializeRedditClient } from "./client/reddit-client"
-import type {
-  BotDisclosureConfig,
-  CacheConfig,
-  FormattedPostInfo,
-  RedditAuthMode,
-  RedditSafeMode,
-  RetryConfig,
-  SafeModeConfig,
-  UserContent,
-} from "./types"
+import type { CacheConfig, FormattedPostInfo, RedditAuthMode, RetryConfig } from "./types"
 import { formatCommentInfo, formatPostInfo, formatSubredditInfo, formatUserInfo } from "./utils/formatters"
 
 // Load environment variables
@@ -25,65 +16,24 @@ declare const __VERSION__: string
 const VERSION = (typeof __VERSION__ !== "undefined" ? __VERSION__ : "0.0.0-dev") as `${number}.${number}.${number}`
 
 // User-Agent validation and building
-function validateUserAgent(userAgent: string, username?: string): void {
+function validateUserAgent(userAgent: string): void {
   const recommendedPattern = /^[\w-]+:[\w-]+:[\d.]+ \(by \/u\/\w+\)$/
   if (!recommendedPattern.test(userAgent)) {
     console.error("[Warning] User-Agent does not follow Reddit's recommended format")
     console.error("[Warning] Recommended: 'platform:app_id:version (by /u/username)'")
     console.error("[Warning] Non-standard User-Agents may increase ban risk")
-    if (username !== undefined) {
-      console.error(`[Warning] Consider using: 'typescript:reddit-mcp-server:${VERSION} (by /u/${username})'`)
-    }
   }
 }
 
-function buildUserAgent(customAgent?: string, username?: string): string {
+function buildUserAgent(customAgent?: string): string {
   if (customAgent !== undefined) {
-    validateUserAgent(customAgent, username)
+    validateUserAgent(customAgent)
     return customAgent
   }
 
-  if (username !== undefined) {
-    const autoAgent = `typescript:reddit-mcp-server:${VERSION} (by /u/${username})`
-    console.error(`[Setup] Auto-generated User-Agent: ${autoAgent}`)
-    return autoAgent
-  }
-
   const fallbackAgent = `typescript:reddit-mcp-server:${VERSION} (by /u/anonymous)`
-  console.error(
-    "[Setup] No REDDIT_USERNAME set — using anonymous User-Agent. Set REDDIT_USERNAME for a personalized agent.",
-  )
+  console.error("[Setup] Using default anonymous User-Agent. Set REDDIT_USER_AGENT for a custom agent.")
   return fallbackAgent
-}
-
-// Safe mode configuration
-function buildSafeModeConfig(safeMode: RedditSafeMode): SafeModeConfig {
-  switch (safeMode) {
-    case "off":
-      return {
-        enabled: false,
-        mode: "off",
-        writeDelayMs: 0,
-        duplicateCheck: false,
-        maxRecentHashes: 10,
-      }
-    case "standard":
-      return {
-        enabled: true,
-        mode: "standard",
-        writeDelayMs: 2000,
-        duplicateCheck: true,
-        maxRecentHashes: 10,
-      }
-    case "strict":
-      return {
-        enabled: true,
-        mode: "strict",
-        writeDelayMs: 5000,
-        duplicateCheck: true,
-        maxRecentHashes: 20,
-      }
-  }
 }
 
 function unwrapClient() {
@@ -122,54 +72,17 @@ function nextPageHint(after?: string): string {
   )
 }
 
-// Render a mixed posts+comments listing (saved / overview).
-function formatUserContent(heading: string, content: UserContent): string {
-  const postsSection =
-    content.posts.length === 0
-      ? ""
-      : `## Posts (${content.posts.length})\n${content.posts
-          .map(
-            (post, index) =>
-              `${index + 1}. ${post.title} — r/${post.subreddit}, score ${post.score.toLocaleString()} — https://reddit.com${post.permalink}`,
-          )
-          .join("\n")}\n\n`
-
-  const commentsSection =
-    content.comments.length === 0
-      ? ""
-      : `## Comments (${content.comments.length})\n${content.comments
-          .map((comment, index) => {
-            const formatted = formatCommentInfo(comment, 200)
-            return `${index + 1}. in r/${comment.subreddit}: ${formatted.content} — ${formatted.link}`
-          })
-          .join("\n")}\n\n`
-
-  const empty = content.posts.length === 0 && content.comments.length === 0 ? "No items found.\n\n" : ""
-
-  return `# ${heading}\n\n${postsSection}${commentsSection}${empty}`.trimEnd() + nextPageHint(content.after)
-}
-
 // Initialize Reddit client
 async function setupRedditClient() {
   const clientId = process.env.REDDIT_CLIENT_ID
   const clientSecret = process.env.REDDIT_CLIENT_SECRET
   const customUserAgent = process.env.REDDIT_USER_AGENT
-  const username = process.env.REDDIT_USERNAME
-  const password = process.env.REDDIT_PASSWORD
   const authMode = (process.env.REDDIT_AUTH_MODE ?? "auto") as RedditAuthMode
-  const safeMode = (process.env.REDDIT_SAFE_MODE ?? "standard") as RedditSafeMode
 
   // Validate auth mode
   if (!["auto", "authenticated", "anonymous"].includes(authMode)) {
     console.error(`[Error] Invalid REDDIT_AUTH_MODE: ${authMode}`)
     console.error("[Error] Valid options are: auto, authenticated, anonymous")
-    process.exit(1)
-  }
-
-  // Validate safe mode
-  if (!["off", "standard", "strict"].includes(safeMode)) {
-    console.error(`[Error] Invalid REDDIT_SAFE_MODE: ${safeMode}`)
-    console.error("[Error] Valid options are: off, standard, strict")
     process.exit(1)
   }
 
@@ -182,20 +95,8 @@ async function setupRedditClient() {
   // For auto/anonymous, credentials are optional
   const hasCredentials = Boolean(clientId && clientSecret)
 
-  // Build user-agent (auto-format with username if available)
-  const userAgent = buildUserAgent(customUserAgent, username)
-
-  // Build safe mode config
-  const safeModeConfig = buildSafeModeConfig(safeMode)
-
-  // Build bot disclosure config
-  const botDisclosureMode = process.env.REDDIT_BOT_DISCLOSURE ?? "off"
-  const defaultFooter =
-    "\n\n---\n^(🤖 I am a bot | Built with) [^reddit-mcp-server](https://github.com/jordanburke/reddit-mcp-server)"
-  const botDisclosureConfig: BotDisclosureConfig = {
-    enabled: botDisclosureMode === "auto",
-    footer: botDisclosureMode === "auto" ? (process.env.REDDIT_BOT_FOOTER ?? defaultFooter) : "",
-  }
+  // Build user-agent
+  const userAgent = buildUserAgent(customUserAgent)
 
   // Build cache config (enabled by default to ease Reddit rate limits; opt out with REDDIT_CACHE=off)
   const cacheEnabled = (process.env.REDDIT_CACHE ?? "on") !== "off"
@@ -217,11 +118,7 @@ async function setupRedditClient() {
     clientId: clientId ?? "",
     clientSecret: clientSecret ?? "",
     userAgent,
-    username,
-    password,
     authMode,
-    safeMode: safeModeConfig,
-    botDisclosure: botDisclosureConfig,
     cache: cacheConfig,
     retry: retryConfig,
   })
@@ -254,32 +151,7 @@ async function setupRedditClient() {
     console.error("[Setup] Using OAuth Reddit API (60-100 req/min)")
   }
 
-  if (username !== undefined && password !== undefined) {
-    console.error(`[Setup] ✓ User authenticated as: ${username}`)
-    console.error("[Setup] Write operations enabled (posting, replying, editing, deleting)")
-  } else {
-    console.error("[Setup] Read-only mode (no user credentials)")
-    console.error("[Setup] For write operations, set REDDIT_USERNAME and REDDIT_PASSWORD")
-  }
-
-  // Log safe mode status
-  if (safeModeConfig.enabled) {
-    console.error(`[Setup] ✓ Safe mode enabled: ${safeModeConfig.mode}`)
-    console.error(`[Setup]   - Write delay: ${safeModeConfig.writeDelayMs}ms between operations`)
-    console.error(`[Setup]   - Duplicate detection: enabled (tracking last ${safeModeConfig.maxRecentHashes} items)`)
-  } else {
-    console.error(
-      "[Setup] Safe mode: off (explicitly disabled — ensure compliance with Reddit's Responsible Builder Policy)",
-    )
-  }
-
-  // Log bot disclosure status
-  if (botDisclosureConfig.enabled) {
-    console.error("[Setup] ✓ Bot disclosure: enabled (automated content will include bot footer)")
-  } else {
-    console.error("[Setup] Bot disclosure: off")
-    console.error("[Setup] For Reddit policy compliance, consider REDDIT_BOT_DISCLOSURE=auto")
-  }
+  console.error("[Setup] Read-only server: all write tools have been removed")
 }
 
 // OAuth token: generate once at startup, never expose in responses
@@ -292,28 +164,21 @@ if (process.env.OAUTH_ENABLED === "true" && process.env.OAUTH_TOKEN === undefine
 const server = new FastMCP({
   name: "reddit-mcp-server",
   version: VERSION,
-  instructions: `A comprehensive Reddit MCP server that provides tools for interacting with Reddit API.
+  instructions: `A read-only Reddit MCP server for personal, non-commercial analysis of public Reddit content.
 
 Available capabilities:
 - Fetch Reddit posts, comments, and user information
 - Get subreddit details and statistics
 - Search Reddit content across posts and subreddits
-- Create posts and reply to posts/comments (with authentication)
-- Edit your own posts and comments (with authentication)
-- Save or unsave posts and comments (with authentication)
-- Delete your own posts and comments (with authentication)
 - Analyze engagement metrics and community insights
 
-For write operations (posting, replying, editing, deleting), ensure REDDIT_USERNAME and REDDIT_PASSWORD are configured.
+This fork is strictly read-only: all write tools (creating, replying, editing, saving, deleting) have been removed.
 
 IMPORTANT - Reddit Responsible Builder Policy compliance:
 - Data retrieved via these tools must NOT be used for AI model training without Reddit's written approval
 - Data must NOT be sold, licensed, or commercially redistributed
 - Do NOT attempt to de-anonymize or re-identify Reddit users
-- Do NOT post identical or substantially similar content across multiple subreddits
 - Do NOT use these tools to manipulate votes, karma, or circumvent Reddit safety mechanisms
-- All bot-generated content must clearly disclose its automated nature
-- Bots must NOT send private/direct messages without explicit user consent
 For details: https://support.reddithelp.com/hc/en-us/articles/42728983564564-Responsible-Builder-Policy`,
 
   // Optional OAuth configuration for HTTP transport
@@ -350,7 +215,7 @@ For details: https://support.reddithelp.com/hc/en-us/articles/42728983564564-Res
 server.addTool({
   name: "test_reddit_mcp_server",
   description:
-    'Health check for the Reddit MCP server. Read-only and side-effect-free — inspects local configuration only and makes no Reddit API calls. Returns the server version, whether the Reddit client is initialized, whether OAuth credentials are present, and whether write access (REDDIT_USERNAME/REDDIT_PASSWORD) is configured. Use this first to diagnose setup/auth problems. Do NOT use it to check Reddit\'s own status or connectivity — it never contacts Reddit. A "✗ Write Access" result means the write tools (create_post, reply_to_post, edit_*, delete_*) will fail.',
+    "Health check for the Reddit MCP server. Read-only and side-effect-free — inspects local configuration only and makes no Reddit API calls. Returns the server version, whether the Reddit client is initialized, and whether OAuth credentials are present. Use this first to diagnose setup/auth problems. Do NOT use it to check Reddit's own status or connectivity — it never contacts Reddit.",
   annotations: {
     title: "Test Reddit MCP Server",
     readOnlyHint: true,
@@ -363,8 +228,6 @@ server.addTool({
       () => "✗",
       () => "✓",
     )
-    const hasWriteAccess =
-      process.env.REDDIT_USERNAME !== undefined && process.env.REDDIT_PASSWORD !== undefined ? "✓" : "✗"
 
     return Promise.resolve(`Reddit MCP Server Status:
 - Server: ✓ Running
@@ -372,7 +235,7 @@ server.addTool({
       () => "Not initialized",
       () => "Initialized",
     )}
-- Write Access: ${hasWriteAccess} ${hasWriteAccess === "✓" ? "Available" : "Read-only mode"}
+- Mode: Read-only (write tools removed)
 - Version: ${VERSION}
 
 Ready to handle Reddit API requests!`)
@@ -383,7 +246,7 @@ Ready to handle Reddit API requests!`)
 server.addTool({
   name: "get_user_info",
   description:
-    "Get a public profile for any Reddit user: comment/post/total karma, account age and status flags, plus a short activity analysis and engagement tips. Read-only; requires OAuth credentials. Returns profile stats only — use get_user_posts / get_user_comments for their actual content. Use get_me instead for your own authenticated account; do NOT expect private fields here, as only public data is returned.",
+    "Get a public profile for any Reddit user: comment/post/total karma, account age and status flags, plus a short activity analysis and engagement tips. Read-only; requires OAuth credentials. Returns profile stats only — use get_user_posts / get_user_comments for their actual content. Do NOT expect private fields here, as only public data is returned.",
   annotations: {
     title: "Get User Info",
     readOnlyHint: true,
@@ -424,104 +287,6 @@ server.addTool({
 ## Recommendations
 - ${formattedUser.recommendations.replace(/\n {2}- /g, "\n- ")}`
       },
-    )
-  },
-})
-
-server.addTool({
-  name: "get_me",
-  description:
-    "Get the authenticated user's own profile (karma, account age, status flags). Read-only, but requires user credentials (REDDIT_USERNAME/REDDIT_PASSWORD) and fails without user credentials. Use this instead of get_user_info when you need the current account rather than an arbitrary user. Do NOT use it to look up other users — it always returns the logged-in account.",
-  annotations: {
-    title: "Get My Account",
-    readOnlyHint: true,
-    openWorldHint: true,
-  },
-  parameters: z.object({}),
-  execute: async () => {
-    const client = unwrapClient()
-
-    const result = await client.getMe()
-    return result.fold(
-      (err) => {
-        // eslint-disable-next-line functype/prefer-either
-        throw new Error(`Failed to get authenticated user: ${err.message}`)
-      },
-      (user) => {
-        const formattedUser = formatUserInfo(user)
-
-        return `# Your Account: u/${formattedUser.username}
-
-## Profile Overview
-- Username: u/${formattedUser.username}
-- Karma:
-  - Comment Karma: ${formattedUser.karma.commentKarma.toLocaleString()}
-  - Post Karma: ${formattedUser.karma.postKarma.toLocaleString()}
-  - Total Karma: ${formattedUser.karma.totalKarma.toLocaleString()}
-- Account Status: ${formattedUser.accountStatus.join(", ")}
-- Account Created: ${formattedUser.accountCreated}
-- Profile URL: ${formattedUser.profileUrl}`
-      },
-    )
-  },
-})
-
-server.addTool({
-  name: "get_my_overview",
-  description:
-    "Get the authenticated user's own recent activity — posts and comments interleaved, newest first. Read-only but requires user credentials (REDDIT_USERNAME/REDDIT_PASSWORD). Returns up to `limit` items plus an `after` cursor for the next page. Use get_my_saved for saved items, or get_user_posts / get_user_comments for another user. Do NOT use this to fetch a specific post's thread — use get_post_comments.",
-  annotations: {
-    title: "Get My Overview",
-    readOnlyHint: true,
-    openWorldHint: true,
-  },
-  parameters: z.object({
-    limit: z.number().min(1).max(100).default(25).describe("How many activity items to return, 1–100 (default 25)."),
-    after: z
-      .string()
-      .optional()
-      .describe("Forward pagination cursor: the `after` value returned by a previous call. Omit for the first page."),
-  }),
-  execute: async (args) => {
-    const client = unwrapClient()
-
-    const result = await client.getMyOverview({ limit: args.limit, after: args.after })
-    return result.fold(
-      (err) => {
-        // eslint-disable-next-line functype/prefer-either
-        throw new Error(`Failed to get your overview: ${err.message}`)
-      },
-      (content) => formatUserContent("Your Overview", content),
-    )
-  },
-})
-
-server.addTool({
-  name: "get_my_saved",
-  description:
-    "Get the authenticated user's saved posts and comments (private to the account). Read-only but requires user credentials (REDDIT_USERNAME/REDDIT_PASSWORD). Returns up to `limit` items plus an `after` pagination cursor. Use get_my_overview for your authored activity. Do NOT use this for another user — saved items are private and have no cross-user equivalent.",
-  annotations: {
-    title: "Get My Saved",
-    readOnlyHint: true,
-    openWorldHint: true,
-  },
-  parameters: z.object({
-    limit: z.number().min(1).max(100).default(25).describe("How many saved items to return, 1–100 (default 25)."),
-    after: z
-      .string()
-      .optional()
-      .describe("Forward pagination cursor: the `after` value returned by a previous call. Omit for the first page."),
-  }),
-  execute: async (args) => {
-    const client = unwrapClient()
-
-    const result = await client.getMySaved({ limit: args.limit, after: args.after })
-    return result.fold(
-      (err) => {
-        // eslint-disable-next-line functype/prefer-either
-        throw new Error(`Failed to get saved content: ${err.message}`)
-      },
-      (content) => formatUserContent("Your Saved Content", content),
     )
   },
 })
@@ -930,7 +695,7 @@ ${formattedSubreddit.description.full}
 server.addTool({
   name: "get_subreddit_rules",
   description:
-    "Get a subreddit's posting rules (each rule's name, what it applies to, and its description). Read-only; requires OAuth credentials. Returns the rules list, or a note when the subreddit lists none. Call this before create_post to check requirements and avoid auto-removal. For available post flairs use get_post_flairs instead.",
+    "Get a subreddit's posting rules (each rule's name, what it applies to, and its description). Read-only; requires OAuth credentials. Returns the rules list, or a note when the subreddit lists none. For available post flairs use get_post_flairs instead.",
   annotations: {
     title: "Get Subreddit Rules",
     readOnlyHint: true,
@@ -972,7 +737,7 @@ ${ruleList}`
 server.addTool({
   name: "get_post_flairs",
   description:
-    "List a subreddit's selectable link flairs (flair text + flair_id) for use with create_post. Read-only, but requires user credentials; many subreddits expose flairs only to members, so this can 403 or return empty without credentials. Pass a returned flair_id (and flair_text for text-editable flairs) to create_post. For the subreddit's posting rules use get_subreddit_rules instead.",
+    "List a subreddit's selectable link flairs (flair text + flair_id). Read-only; requires OAuth credentials — some subreddits restrict their flair listings, so this can 403 or return empty. For the subreddit's posting rules use get_subreddit_rules instead.",
   annotations: {
     title: "Get Post Flairs",
     readOnlyHint: true,
@@ -1004,9 +769,7 @@ server.addTool({
 
         return `# Available Link Flairs for r/${args.subreddit_name}
 
-${flairList}
-
-Pass the desired \`flair_id\` to \`create_post\`.`
+${flairList}`
       },
     )
   },
@@ -1136,398 +899,6 @@ Sorted by: ${args.sort} | Time: ${args.time_filter} | Type: ${args.type}
 
 ${searchResults}${nextPageHint(page.after)}`
       },
-    )
-  },
-})
-
-// Write tools (require user authentication)
-server.addTool({
-  name: "create_post",
-  description:
-    "Create a new text or link post in a subreddit. Mutating and NOT idempotent — each call publishes a separate post. Requires REDDIT_USERNAME and REDDIT_PASSWORD; fails without them. Returns the new post's id and URL. Check get_subreddit_rules and get_post_flairs first, since many subreddits require a flair or reject certain content. WARNING: rapid posting or duplicate content may trigger Reddit's spam detection and account bans — enable REDDIT_SAFE_MODE=standard for rate limiting and duplicate detection.",
-  annotations: {
-    title: "Create Post",
-    readOnlyHint: false,
-    destructiveHint: false,
-    idempotentHint: false,
-    openWorldHint: true,
-  },
-  parameters: z.object({
-    subreddit: z.string().describe("Target subreddit, without the r/ prefix (e.g. 'test')."),
-    title: z.string().describe("Post title (cannot be edited after creation)."),
-    content: z
-      .string()
-      .describe(
-        "For a self post (is_self=true): the body text, Reddit markdown supported. For a link post (is_self=false): the destination URL.",
-      ),
-    is_self: z
-      .boolean()
-      .default(true)
-      .describe(
-        "true = text/self post using `content` as the body (default); false = link post using `content` as the URL.",
-      ),
-    flair_id: z
-      .string()
-      .optional()
-      .describe(
-        "Link flair template id from get_post_flairs; many subreddits require one or the post is auto-removed.",
-      ),
-    flair_text: z
-      .string()
-      .optional()
-      .describe("Custom flair text, allowed only for flairs whose template is text-editable."),
-  }),
-  execute: async (args) => {
-    const client = unwrapClient()
-
-    if (process.env.REDDIT_USERNAME === undefined || process.env.REDDIT_PASSWORD === undefined) {
-      // eslint-disable-next-line functype/prefer-either
-      throw new Error(
-        "User authentication required. Please set REDDIT_USERNAME and REDDIT_PASSWORD environment variables.",
-      )
-    }
-
-    const result = await client.createPost(
-      args.subreddit,
-      args.title,
-      args.content,
-      args.is_self,
-      args.flair_id,
-      args.flair_text,
-    )
-    return result.fold(
-      (err) => {
-        // eslint-disable-next-line functype/prefer-either
-        throw new Error(`Failed to create post: ${err.message}`)
-      },
-      (post) => {
-        const formattedPost = formatPostInfo(post)
-
-        return `# Post Created Successfully
-
-## Post Details
-- Title: ${formattedPost.title}
-- Subreddit: r/${formattedPost.subreddit}
-- Type: ${formattedPost.type}
-- Link: ${formattedPost.links.fullPost}
-
-Your post has been successfully submitted to r/${formattedPost.subreddit}.`
-      },
-    )
-  },
-})
-
-server.addTool({
-  name: "reply_to_post",
-  description:
-    "Post a reply to an existing post or comment. Mutating and NOT idempotent — each call adds a new comment. Requires REDDIT_USERNAME and REDDIT_PASSWORD. The parent is identified by its thing id — t3_ for a post, t1_ for a comment — so this creates both top-level and nested replies. Returns the new comment's id. Use edit_comment to change a reply you already posted. WARNING: rapid or duplicate replies may trigger Reddit's spam detection; enable REDDIT_SAFE_MODE=standard for rate limiting and duplicate detection.",
-  annotations: {
-    title: "Reply to Post or Comment",
-    readOnlyHint: false,
-    destructiveHint: false,
-    idempotentHint: false,
-    openWorldHint: true,
-  },
-  parameters: z.object({
-    post_id: z
-      .string()
-      .describe(
-        "Parent thing id to reply under: t3_<id> for a post (creates a top-level comment) or t1_<id> for a comment (creates a nested reply).",
-      ),
-    content: z.string().describe("Reply body text; Reddit markdown supported."),
-  }),
-  execute: async (args) => {
-    const client = unwrapClient()
-
-    if (process.env.REDDIT_USERNAME === undefined || process.env.REDDIT_PASSWORD === undefined) {
-      // eslint-disable-next-line functype/prefer-either
-      throw new Error(
-        "User authentication required. Please set REDDIT_USERNAME and REDDIT_PASSWORD environment variables.",
-      )
-    }
-
-    const result = await client.replyToPost(args.post_id, args.content)
-    return result.fold(
-      (err) => {
-        // eslint-disable-next-line functype/prefer-either
-        throw new Error(`Failed to reply: ${err.message}`)
-      },
-      (comment) => `# Reply Posted Successfully
-
-## Comment Details
-- Posted to: ${args.post_id}
-- Author: u/${process.env.REDDIT_USERNAME}
-- Comment ID: ${comment.id}
-
-Your reply has been successfully posted.`,
-    )
-  },
-})
-
-server.addTool({
-  name: "delete_post",
-  description:
-    "Permanently delete one of your own posts. Mutating and destructive but idempotent — deleting an already-deleted post is a no-op. Requires REDDIT_USERNAME and REDDIT_PASSWORD, and only works on posts authored by the authenticated account. Only affects the post you name; use delete_comment for comments. WARNING: this cannot be undone — the content is removed, though the post id remains.",
-  annotations: {
-    title: "Delete Post",
-    readOnlyHint: false,
-    destructiveHint: true,
-    idempotentHint: true,
-    openWorldHint: true,
-  },
-  parameters: z.object({
-    thing_id: z
-      .string()
-      .describe(
-        "The post to delete: a full thing id 't3_<id>' or just the base36 post id '<id>' (the 't3_' prefix is added automatically). Must be a post you authored.",
-      ),
-  }),
-  execute: async (args) => {
-    const client = unwrapClient()
-
-    if (process.env.REDDIT_USERNAME === undefined || process.env.REDDIT_PASSWORD === undefined) {
-      // eslint-disable-next-line functype/prefer-either
-      throw new Error(
-        "User authentication required. Please set REDDIT_USERNAME and REDDIT_PASSWORD environment variables.",
-      )
-    }
-
-    const result = await client.deletePost(args.thing_id)
-    return result.fold(
-      (err) => {
-        // eslint-disable-next-line functype/prefer-either
-        throw new Error(`Failed to delete post: ${err.message}`)
-      },
-      () => `# Post Deleted Successfully
-
-The post ${args.thing_id} has been permanently deleted from Reddit.
-
-**Note**: This action cannot be undone. The post content has been removed and cannot be recovered.`,
-    )
-  },
-})
-
-server.addTool({
-  name: "delete_comment",
-  description:
-    "Permanently delete one of your own comments. Mutating and destructive but idempotent — deleting an already-deleted comment is a no-op. Requires REDDIT_USERNAME and REDDIT_PASSWORD, and only works on comments authored by the authenticated account. Only affects the comment you name; use delete_post for posts. WARNING: this cannot be undone — the content is removed, though the comment id remains.",
-  annotations: {
-    title: "Delete Comment",
-    readOnlyHint: false,
-    destructiveHint: true,
-    idempotentHint: true,
-    openWorldHint: true,
-  },
-  parameters: z.object({
-    thing_id: z
-      .string()
-      .describe(
-        "The comment to delete: a full thing id 't1_<id>' or just the base36 comment id '<id>' (the 't1_' prefix is added automatically). Must be a comment you authored.",
-      ),
-  }),
-  execute: async (args) => {
-    const client = unwrapClient()
-
-    if (process.env.REDDIT_USERNAME === undefined || process.env.REDDIT_PASSWORD === undefined) {
-      // eslint-disable-next-line functype/prefer-either
-      throw new Error(
-        "User authentication required. Please set REDDIT_USERNAME and REDDIT_PASSWORD environment variables.",
-      )
-    }
-
-    const result = await client.deleteComment(args.thing_id)
-    return result.fold(
-      (err) => {
-        // eslint-disable-next-line functype/prefer-either
-        throw new Error(`Failed to delete comment: ${err.message}`)
-      },
-      () => `# Comment Deleted Successfully
-
-The comment ${args.thing_id} has been permanently deleted from Reddit.
-
-**Note**: This action cannot be undone. The comment content has been removed and cannot be recovered.`,
-    )
-  },
-})
-
-server.addTool({
-  name: "edit_post",
-  description:
-    'Replace the body text of one of your own self-text posts. Mutating and idempotent (same text → same result); it overwrites the previous body. Requires REDDIT_USERNAME and REDDIT_PASSWORD, and works only on self posts you authored — titles and link posts cannot be edited. Adds an "edited" marker. Use create_post to make a new post, or edit_comment for comments. WARNING: rapid edits may trigger spam detection; enable REDDIT_SAFE_MODE for protection.',
-  annotations: {
-    title: "Edit Post",
-    readOnlyHint: false,
-    destructiveHint: true,
-    idempotentHint: true,
-    openWorldHint: true,
-  },
-  parameters: z.object({
-    thing_id: z
-      .string()
-      .describe(
-        "The post to edit: a full thing id 't3_<id>' or just the base36 post id '<id>' (the 't3_' prefix is added automatically). Must be a self-text post you authored.",
-      ),
-    new_text: z
-      .string()
-      .describe("Replacement body text; fully overwrites the current body. Reddit markdown supported."),
-  }),
-  execute: async (args) => {
-    const client = unwrapClient()
-
-    if (process.env.REDDIT_USERNAME === undefined || process.env.REDDIT_PASSWORD === undefined) {
-      // eslint-disable-next-line functype/prefer-either
-      throw new Error(
-        "User authentication required. Please set REDDIT_USERNAME and REDDIT_PASSWORD environment variables.",
-      )
-    }
-
-    const result = await client.editPost(args.thing_id, args.new_text)
-    return result.fold(
-      (err) => {
-        // eslint-disable-next-line functype/prefer-either
-        throw new Error(`Failed to edit post: ${err.message}`)
-      },
-      () => `# Post Edited Successfully
-
-The post ${args.thing_id} has been updated with your new content.
-
-**Note**:
-- Only self (text) posts can be edited
-- Post titles cannot be edited
-- Link posts cannot be edited
-- An "edited" marker will appear on your post`,
-    )
-  },
-})
-
-server.addTool({
-  name: "edit_comment",
-  description:
-    'Replace the text of one of your own comments. Mutating and idempotent (same text → same result); it overwrites the previous content. Requires REDDIT_USERNAME and REDDIT_PASSWORD, and works only on comments you authored. Adds an "edited" marker. Use reply_to_post to add a new comment, or edit_post for posts. WARNING: rapid edits may trigger spam detection; enable REDDIT_SAFE_MODE for protection.',
-  annotations: {
-    title: "Edit Comment",
-    readOnlyHint: false,
-    destructiveHint: true,
-    idempotentHint: true,
-    openWorldHint: true,
-  },
-  parameters: z.object({
-    thing_id: z
-      .string()
-      .describe(
-        "The comment to edit: a full thing id 't1_<id>' or just the base36 comment id '<id>' (the 't1_' prefix is added automatically). Must be a comment you authored.",
-      ),
-    new_text: z
-      .string()
-      .describe("Replacement comment text; fully overwrites the current content. Reddit markdown supported."),
-  }),
-  execute: async (args) => {
-    const client = unwrapClient()
-
-    if (process.env.REDDIT_USERNAME === undefined || process.env.REDDIT_PASSWORD === undefined) {
-      // eslint-disable-next-line functype/prefer-either
-      throw new Error(
-        "User authentication required. Please set REDDIT_USERNAME and REDDIT_PASSWORD environment variables.",
-      )
-    }
-
-    const result = await client.editComment(args.thing_id, args.new_text)
-    return result.fold(
-      (err) => {
-        // eslint-disable-next-line functype/prefer-either
-        throw new Error(`Failed to edit comment: ${err.message}`)
-      },
-      () => `# Comment Edited Successfully
-
-The comment ${args.thing_id} has been updated with your new content.
-
-**Note**: An "edited" marker will appear on your comment to show it has been modified.`,
-    )
-  },
-})
-
-server.addTool({
-  name: "save_content",
-  description:
-    "Save a post or comment to your account (a private bookmark, listed by get_my_saved). Mutating but idempotent — saving an already-saved item is a no-op. Requires REDDIT_USERNAME and REDDIT_PASSWORD; works on any post/comment you can see, not just your own. Accepts a full thing id (t3_ for a post, t1_ for a comment) — a bare id is treated as a post. Use unsave_content to undo.",
-  annotations: {
-    title: "Save Post or Comment",
-    readOnlyHint: false,
-    destructiveHint: false,
-    idempotentHint: true,
-    openWorldHint: true,
-  },
-  parameters: z.object({
-    thing_id: z
-      .string()
-      .describe(
-        "The post or comment to save: a full thing id 't3_<id>' (post) or 't1_<id>' (comment). A bare id is treated as a post.",
-      ),
-    category: z
-      .string()
-      .optional()
-      .describe("Optional save category to file this under (Reddit Premium feature; ignored on other accounts)."),
-  }),
-  execute: async (args) => {
-    const client = unwrapClient()
-
-    if (process.env.REDDIT_USERNAME === undefined || process.env.REDDIT_PASSWORD === undefined) {
-      // eslint-disable-next-line functype/prefer-either
-      throw new Error(
-        "User authentication required. Please set REDDIT_USERNAME and REDDIT_PASSWORD environment variables.",
-      )
-    }
-
-    const result = await client.saveContent(args.thing_id, args.category)
-    return result.fold(
-      (err) => {
-        // eslint-disable-next-line functype/prefer-either
-        throw new Error(`Failed to save content: ${err.message}`)
-      },
-      () => `# Content Saved Successfully
-
-${args.thing_id} has been saved to your account. Use get_my_saved to view your saved items.`,
-    )
-  },
-})
-
-server.addTool({
-  name: "unsave_content",
-  description:
-    "Remove a post or comment from your saved items (undoes save_content). Mutating but idempotent — unsaving an item that isn't saved is a no-op. Requires REDDIT_USERNAME and REDDIT_PASSWORD. Accepts a full thing id (t3_ for a post, t1_ for a comment) — a bare id is treated as a post.",
-  annotations: {
-    title: "Unsave Post or Comment",
-    readOnlyHint: false,
-    destructiveHint: false,
-    idempotentHint: true,
-    openWorldHint: true,
-  },
-  parameters: z.object({
-    thing_id: z
-      .string()
-      .describe(
-        "The post or comment to unsave: a full thing id 't3_<id>' (post) or 't1_<id>' (comment). A bare id is treated as a post.",
-      ),
-  }),
-  execute: async (args) => {
-    const client = unwrapClient()
-
-    if (process.env.REDDIT_USERNAME === undefined || process.env.REDDIT_PASSWORD === undefined) {
-      // eslint-disable-next-line functype/prefer-either
-      throw new Error(
-        "User authentication required. Please set REDDIT_USERNAME and REDDIT_PASSWORD environment variables.",
-      )
-    }
-
-    const result = await client.unsaveContent(args.thing_id)
-    return result.fold(
-      (err) => {
-        // eslint-disable-next-line functype/prefer-either
-        throw new Error(`Failed to unsave content: ${err.message}`)
-      },
-      () => `# Content Unsaved Successfully
-
-${args.thing_id} has been removed from your saved items.`,
     )
   },
 })

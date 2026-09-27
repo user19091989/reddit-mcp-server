@@ -3,8 +3,8 @@
   "name": "reddit-mcp-server",
   "display_name": "Reddit MCP Server",
   "version": "1.6.3",
-  "description": "Browse Reddit and create content directly from Claude Desktop. The only Reddit MCP with full write operations.",
-  "long_description": "Reddit MCP Server brings the full Reddit experience to Claude Desktop - not just reading, but writing too.\n\n**Key Features:**\n\n**Read Operations:**\n- Browse any subreddit with sorting options\n- Search Reddit content across all communities\n- Get user profiles with karma and activity\n- Fetch full post details including threaded comments\n- Discover trending subreddits\n\n**Write Operations (Unique!):**\n- Create new posts (text or link)\n- Reply to posts and comments\n- Edit your own posts and comments\n- Delete your own content\n\n**Why Choose Reddit MCP Server:**\n- **Full Write Support** - The only Reddit MCP that lets you post and interact\n- **Safe Mode** - Built-in spam protection to keep your account safe\n- **No API Keys Required** - Works instantly in anonymous mode\n- **Three Auth Tiers** - 10/60/100 requests per minute\n- **FastMCP Powered** - Modern, fast MCP implementation\n\n**Perfect for:**\n- Content creators and community managers\n- Market research and trend analysis\n- Automated posting with safeguards\n- Community engagement",
+  "description": "Read-only Reddit access for Claude Desktop - browse, search, and analyze public posts and comments. All write tools have been removed.",
+  "long_description": "Read-only fork of reddit-mcp-server for personal, non-commercial Reddit Data API use: local analysis of public posts and comments. All write tools have been removed.\n\n**Key Features:**\n\n**Read Operations:**\n- Browse any subreddit with sorting options\n- Search Reddit content across all communities\n- Get user profiles with karma and activity\n- Fetch full post details including threaded comments\n- Discover trending subreddits\n- View subreddit info, rules, and post flairs\n\n**Strictly Read-Only:**\n- No creating, editing, or deleting content\n- No user credentials required - OAuth app authentication only\n- RSS fallback works with zero setup\n\n**Perfect for:**\n- Personal, non-commercial analysis of public Reddit content\n- Market research and trend analysis\n- Community and engagement insights",
   "author": {
     "name": "Jordan Burke",
     "email": "jordan.burke@gmail.com",
@@ -23,12 +23,7 @@
       "args": ["${__dirname}/dist/index.js"],
       "env": {
         "REDDIT_CLIENT_ID": "${user_config.reddit_client_id}",
-        "REDDIT_CLIENT_SECRET": "${user_config.reddit_client_secret}",
-        "REDDIT_USERNAME": "${user_config.reddit_username}",
-        "REDDIT_PASSWORD": "${user_config.reddit_password}",
-        "REDDIT_SAFE_MODE": "${user_config.reddit_safe_mode}",
-        "REDDIT_BOT_DISCLOSURE": "${user_config.reddit_bot_disclosure}",
-        "REDDIT_BOT_FOOTER": "${user_config.reddit_bot_footer}"
+        "REDDIT_CLIENT_SECRET": "${user_config.reddit_client_secret}"
       }
     }
   },
@@ -42,16 +37,24 @@
       "description": "Get top posts from a subreddit or home feed"
     },
     {
+      "name": "browse_subreddit",
+      "description": "Browse a subreddit by sort order (hot, new, top, rising, controversial)"
+    },
+    {
       "name": "get_post_comments",
       "description": "Get comments from a post with threading"
     },
     {
+      "name": "get_more_comments",
+      "description": "Expand truncated 'load more' comment stubs"
+    },
+    {
       "name": "search_reddit",
-      "description": "Search for posts across Reddit"
+      "description": "Search for posts, subreddits, or users across Reddit"
     },
     {
       "name": "get_user_info",
-      "description": "Get detailed user information"
+      "description": "Get detailed information about a Reddit user"
     },
     {
       "name": "get_user_posts",
@@ -66,35 +69,23 @@
       "description": "Get subreddit details and statistics"
     },
     {
+      "name": "get_subreddit_rules",
+      "description": "Get a subreddit's posting rules"
+    },
+    {
+      "name": "get_post_flairs",
+      "description": "List a subreddit's available link flairs"
+    },
+    {
       "name": "get_trending_subreddits",
       "description": "Get currently trending subreddits"
     },
     {
-      "name": "create_post",
-      "description": "Create a new post in a subreddit"
-    },
-    {
-      "name": "reply_to_post",
-      "description": "Reply to a post or comment"
-    },
-    {
-      "name": "edit_post",
-      "description": "Edit your own post"
-    },
-    {
-      "name": "edit_comment",
-      "description": "Edit your own comment"
-    },
-    {
-      "name": "delete_post",
-      "description": "Delete your own post"
-    },
-    {
-      "name": "delete_comment",
-      "description": "Delete your own comment"
+      "name": "test_reddit_mcp_server",
+      "description": "Health check for the server configuration"
     }
   ],
-  "keywords": ["reddit", "social-media", "api", "mcp", "write", "post", "comment", "search", "analysis"],
+  "keywords": ["reddit", "social-media", "api", "mcp", "read-only", "search", "analysis"],
   "license": "MIT",
   "user_config": {
     "reddit_client_id": {
@@ -110,41 +101,6 @@
       "description": "Your Reddit app client secret (required with client ID)",
       "required": false,
       "sensitive": true
-    },
-    "reddit_username": {
-      "type": "string",
-      "title": "Reddit Username",
-      "description": "Your Reddit username (required for write operations and 100 req/min)",
-      "required": false,
-      "sensitive": false
-    },
-    "reddit_password": {
-      "type": "string",
-      "title": "Reddit Password",
-      "description": "Your Reddit password (required for write operations)",
-      "required": false,
-      "sensitive": true
-    },
-    "reddit_safe_mode": {
-      "type": "string",
-      "title": "Safe Mode",
-      "description": "Spam protection level: off, standard (default), or strict",
-      "required": false,
-      "sensitive": false
-    },
-    "reddit_bot_disclosure": {
-      "type": "string",
-      "title": "Bot Disclosure",
-      "description": "Bot disclosure footer: auto or off (default)",
-      "required": false,
-      "sensitive": false
-    },
-    "reddit_bot_footer": {
-      "type": "string",
-      "title": "Bot Footer",
-      "description": "Custom bot footer text (used with bot disclosure = auto)",
-      "required": false,
-      "sensitive": false
     }
   }
 }

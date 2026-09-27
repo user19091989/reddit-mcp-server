@@ -1,5 +1,9 @@
 # Reddit MCP Server Roadmap
 
+> **This fork is strictly read-only.** The write-oriented items below (create/edit/delete
+> content, subscriptions, voting) reflect upstream plans and are out of scope here — all
+> write tools have been removed. Read-only items remain relevant.
+
 ## Implemented Features ✅
 
 - Get subreddit info
@@ -69,7 +73,7 @@
 
 ## Implementation Notes
 
-- All write operations require user authentication (username/password)
+- This fork is strictly read-only: write operations are out of scope and their tools have been removed
 - Rate limiting should be implemented to respect Reddit's API limits
 - Error handling should provide clear messages about authentication requirements
 - Consider implementing caching for frequently accessed data

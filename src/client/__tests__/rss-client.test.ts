@@ -405,18 +405,6 @@ describe("RedditClient RSS mode", () => {
 
     expect(mockFetch).not.toHaveBeenCalled()
   })
-
-  it("createPost returns NotAuthenticatedError in RSS mode", async () => {
-    const client = new RedditClient(rssConfig)
-    const result = await client.createPost("test", "title", "body")
-
-    expect(result.isLeft()).toBe(true)
-    if (result.isLeft()) {
-      expect(result.value._tag).toBe("NotAuthenticatedError")
-    }
-
-    expect(mockFetch).not.toHaveBeenCalled()
-  })
 })
 
 describe("RssClient validation", () => {

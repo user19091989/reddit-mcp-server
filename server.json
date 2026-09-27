@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.jordanburke/reddit-mcp-server",
-  "description": "Reddit MCP server with full read/write - posts, comments, search, and content creation.",
+  "description": "Read-only Reddit MCP server - browse posts and comments, search, and analyze public user data. All write tools have been removed.",
   "repository": {
     "url": "https://github.com/jordanburke/reddit-mcp-server",
     "source": "github"
@@ -31,43 +31,8 @@
           "isSecret": true
         },
         {
-          "name": "REDDIT_USERNAME",
-          "description": "Reddit username (required for write operations)",
-          "isRequired": false,
-          "format": "string",
-          "isSecret": false
-        },
-        {
-          "name": "REDDIT_PASSWORD",
-          "description": "Reddit password (required for write operations)",
-          "isRequired": false,
-          "format": "string",
-          "isSecret": true
-        },
-        {
           "name": "REDDIT_AUTH_MODE",
           "description": "Authentication mode: auto, authenticated, or anonymous",
-          "isRequired": false,
-          "format": "string",
-          "isSecret": false
-        },
-        {
-          "name": "REDDIT_SAFE_MODE",
-          "description": "Write safeguards: off, standard (default), or strict",
-          "isRequired": false,
-          "format": "string",
-          "isSecret": false
-        },
-        {
-          "name": "REDDIT_BOT_DISCLOSURE",
-          "description": "Bot disclosure footer: auto or off (default)",
-          "isRequired": false,
-          "format": "string",
-          "isSecret": false
-        },
-        {
-          "name": "REDDIT_BOT_FOOTER",
-          "description": "Custom bot footer text (used with REDDIT_BOT_DISCLOSURE=auto)",
           "isRequired": false,
           "format": "string",
           "isSecret": false

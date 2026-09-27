@@ -18,7 +18,7 @@ import { Option } from "functype"
  *    message, so it passes through unchanged.
  *  - An *unexpected* generic error (fetch/JSON/orThrow) is wrapped as UnknownError, with the
  *    optional `context` prefix — present for read methods (which prefixed in their catch),
- *    absent for write methods (which returned the raw message).
+ *    absent otherwise.
  */
 
 abstract class RedditErrorBase extends Error {}
@@ -35,21 +35,12 @@ export class HttpError extends RedditErrorBase {
   }
 }
 
-/** A write operation was attempted without the required user credentials / in a wrong mode. */
+/** An operation was attempted without the required OAuth credentials (e.g. outside OAuth mode). */
 export class NotAuthenticatedError extends RedditErrorBase {
   readonly _tag = "NotAuthenticatedError" as const
   constructor(message: string) {
     super(message)
     this.name = "NotAuthenticatedError"
-  }
-}
-
-/** Reddit accepted the request but returned errors in its JSON envelope (or an unusable body). */
-export class ApiError extends RedditErrorBase {
-  readonly _tag = "ApiError" as const
-  constructor(message: string) {
-    super(message)
-    this.name = "ApiError"
   }
 }
 
@@ -62,7 +53,7 @@ export class NotFoundError extends RedditErrorBase {
   }
 }
 
-/** Client-side input or safety-policy rejection (invalid sort, duplicate-content guard). */
+/** Client-side input rejection (invalid sort, malformed identifier). */
 export class ValidationError extends RedditErrorBase {
   readonly _tag = "ValidationError" as const
   constructor(message: string) {
@@ -83,7 +74,7 @@ export class UnknownError extends RedditErrorBase {
   }
 }
 
-export type RedditError = HttpError | NotAuthenticatedError | ApiError | NotFoundError | ValidationError | UnknownError
+export type RedditError = HttpError | NotAuthenticatedError | NotFoundError | ValidationError | UnknownError
 
 export function isRedditError(error: unknown): error is RedditError {
   return error instanceof RedditErrorBase

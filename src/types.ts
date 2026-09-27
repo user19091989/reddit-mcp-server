@@ -1,28 +1,5 @@
 export type RedditAuthMode = "auto" | "authenticated" | "anonymous"
 
-export type RedditSafeMode = "off" | "standard" | "strict"
-
-export type BotDisclosureMode = "auto" | "off"
-
-export type BotDisclosureConfig = {
-  readonly enabled: boolean
-  readonly footer: string
-}
-
-export type ContentRecord = {
-  readonly hash: string
-  readonly subreddit: string
-  readonly timestamp: number
-}
-
-export type SafeModeConfig = {
-  readonly enabled: boolean
-  readonly mode: RedditSafeMode
-  readonly writeDelayMs: number
-  readonly duplicateCheck: boolean
-  readonly maxRecentHashes: number
-}
-
 export type CacheConfig = {
   readonly enabled: boolean
   readonly maxBytes: number
@@ -41,11 +18,7 @@ export type RedditClientConfig = {
   readonly clientId: string
   readonly clientSecret: string
   readonly userAgent: string
-  readonly username?: string
-  readonly password?: string
   readonly authMode?: RedditAuthMode
-  readonly safeMode?: SafeModeConfig
-  readonly botDisclosure?: BotDisclosureConfig
   readonly cache?: CacheConfig
   readonly retry?: RetryConfig
 }
@@ -124,17 +97,6 @@ export type Page<T> = {
   readonly source?: PageSource
 }
 
-/**
- * A mixed page of a user's posts and comments (saved / overview listings), split by kind, plus
- * the pagination cursor.
- */
-export type UserContent = {
-  readonly posts: readonly RedditPost[]
-  readonly comments: readonly RedditComment[]
-  readonly after?: string
-  readonly before?: string
-}
-
 /** A subreddit posting rule (from /r/{sr}/about/rules). `kind` is "link" | "comment" | "all". */
 export type RedditRule = {
   readonly shortName: string
@@ -145,7 +107,7 @@ export type RedditRule = {
   readonly createdUtc?: number
 }
 
-/** An available link flair template (from /r/{sr}/api/link_flair_v2). `id` is passed to create_post. */
+/** An available link flair template (from /r/{sr}/api/link_flair_v2). */
 export type RedditFlair = {
   readonly id: string
   readonly text: string
@@ -234,20 +196,6 @@ export type FormattedCommentInfo = {
 }
 
 // Reddit API Response Types (Raw API structures)
-
-// /api/v1/me returns the account fields at the top level (no "data" wrapper).
-export type RedditApiMeResponse = {
-  readonly name: string
-  readonly id: string
-  readonly comment_karma: number
-  readonly link_karma: number
-  readonly total_karma?: number
-  readonly is_mod: boolean
-  readonly is_gold: boolean
-  readonly is_employee: boolean
-  readonly created_utc: number
-  readonly [key: string]: unknown
-}
 
 export type RedditApiUserResponse = {
   readonly data: {
@@ -355,37 +303,6 @@ export type RedditApiResponse<T = unknown> = {
   readonly [key: string]: unknown
 }
 
-// Reddit API Submit Response (for createPost)
-export type RedditApiSubmitResponse = {
-  readonly json: {
-    readonly errors?: ReadonlyArray<readonly [string, string, string?]>
-    readonly data?: {
-      readonly id?: string
-      readonly name?: string
-      readonly url?: string
-    }
-  }
-}
-
-// Reddit API Comment Response (for replyToPost)
-export type RedditApiCommentResponse = {
-  readonly json: {
-    readonly errors?: ReadonlyArray<readonly [string, string, string?]>
-    readonly data?: {
-      readonly things?: ReadonlyArray<{
-        readonly kind: string
-        readonly data: {
-          readonly id: string
-          readonly subreddit: string
-          readonly link_title?: string
-          readonly permalink: string
-          readonly [key: string]: unknown
-        }
-      }>
-    }
-  }
-}
-
 // /api/morechildren returns a flat list of comment "things" (and possibly further "more" stubs).
 export type RedditApiMoreChildrenResponse = {
   readonly json: {
@@ -394,24 +311,6 @@ export type RedditApiMoreChildrenResponse = {
       readonly things?: ReadonlyArray<{
         readonly kind: string
         readonly data: RedditApiCommentTreeData
-      }>
-    }
-  }
-}
-
-// Reddit API Edit Response (for editPost)
-export type RedditApiEditResponse = {
-  readonly json: {
-    readonly errors?: ReadonlyArray<readonly [string, string, string?]>
-    readonly data?: {
-      readonly things?: ReadonlyArray<{
-        readonly kind: string
-        readonly data: {
-          readonly id: string
-          readonly body?: string
-          readonly selftext?: string
-          readonly [key: string]: unknown
-        }
       }>
     }
   }
@@ -464,7 +363,7 @@ export type RedditApiCommentTreeData = {
   readonly [key: string]: unknown
 }
 
-// Reddit API Info/Check Response (for checkPostExists, getPost info endpoint)
+// Reddit API Info Response (for the getPost info endpoint)
 export type RedditApiInfoResponse = {
   readonly data: {
     readonly children: ReadonlyArray<{

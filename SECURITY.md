@@ -26,11 +26,10 @@ Please include:
 - The version you are running (`npx reddit-mcp-server --version`, or the package version).
 - Your transport mode (stdio or `TRANSPORT_TYPE=httpStream`) and auth mode (`REDDIT_AUTH_MODE`).
 - Steps to reproduce, ideally with a minimal tool call or request.
-- What an attacker gains — credential disclosure, unintended writes to Reddit, request
-  forgery, and so on.
+- What an attacker gains — credential disclosure, request forgery, and so on.
 
 **Never include real credentials in a report.** Redact `REDDIT_CLIENT_SECRET`,
-`REDDIT_PASSWORD`, `OAUTH_TOKEN`, and any Reddit access token.
+`OAUTH_TOKEN`, and any Reddit access token.
 
 ## What to expect
 
@@ -49,8 +48,8 @@ In scope:
 - Path or parameter injection through tool inputs that redirects a request away from its
   intended Reddit endpoint.
 - Authentication bypass on the HTTP transport when `OAUTH_ENABLED=true`.
-- Unintended write operations — a read-only tool call that creates, edits, or deletes Reddit
-  content.
+- Any code path that mutates Reddit state — this fork is strictly read-only by design; a
+  request that creates, edits, or deletes Reddit content is a finding.
 - Dependency vulnerabilities that are reachable from this server's code paths.
 
 Out of scope:
@@ -66,10 +65,8 @@ Out of scope:
 
 ## Operational notes
 
-- Write tools (`create_post`, `reply_to_post`, `edit_post`, `edit_comment`, `delete_post`,
-  `delete_comment`) require `REDDIT_USERNAME` and `REDDIT_PASSWORD`. Omit those variables and
-  the server can only read.
+- This fork is strictly read-only: all write tools have been removed, and the server holds no
+  Reddit user credentials — only OAuth app credentials (`REDDIT_CLIENT_ID` /
+  `REDDIT_CLIENT_SECRET`).
 - Credentials are read from the environment and are never written to disk or included in tool
   responses.
-- Deletions are permanent. `REDDIT_SAFE_MODE=standard` or `strict` adds write delays and
-  duplicate-content checks, but does not gate deletes.

@@ -1,7 +1,7 @@
 {
   "name": "reddit-mcp-server",
   "version": "1.6.3",
-  "description": "A Model Context Protocol (MCP) server for Reddit with full read AND write operations - create posts, reply, edit, and delete content.",
+  "description": "A read-only Model Context Protocol (MCP) server for Reddit - personal, non-commercial analysis of public posts and comments. All write tools have been removed.",
   "type": "module",
   "main": "dist/index.js",
   "module": "./dist/index.js",
@@ -53,9 +53,8 @@
     "ai-assistant",
     "social-media",
     "fastmcp",
-    "write",
-    "post",
-    "comment"
+    "read-only",
+    "analysis"
   ],
   "mcpName": "io.github.jordanburke/reddit-mcp-server",
   "author": "Jordan Burke <jordan.burke@gmail.com>",
